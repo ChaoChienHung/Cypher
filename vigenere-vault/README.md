@@ -73,6 +73,19 @@ cd vigenere-vault && python build.py
 
 ### 2. 直接以原始碼啟動桌面視窗 (GUI)
 ```bash
+python vigenere-vault/build.py
+# 或進入目錄執行
+cd vigenere-vault && python build.py
+```
+編譯完成後，產生的原生應用程式位於：
+- **`vigenere-vault/dist/VigenereVault.app`**（在 Finder 中直接**點兩下**即可開啟，無需終端機或環境依賴！）
+- 若要在 Finder 中定位該檔案：
+  ```bash
+  open -R vigenere-vault/dist/VigenereVault.app
+  ```
+
+### 2. 直接以原始碼啟動桌面視窗 (GUI)
+```bash
 python3 vigenere-vault/gui.py
 # 或透過 main.py 啟動
 python3 vigenere-vault/main.py --gui
