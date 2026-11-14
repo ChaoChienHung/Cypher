@@ -1,0 +1,13 @@
+# 機密與明文產出檔
+Secrets.txt
+**/Secrets.txt
+decodedSecrets.txt
+decodedSecrets.md
+**/decodedSecrets.*
+
+# 系統與環境檔案
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
