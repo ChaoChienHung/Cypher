@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
 """
-Modern Graphical User Interface (GUI) for Vigenère Vault.
-Built with Python's native Tkinter & TTK.
+Modern PySide6 GUI for Vigenère Vault.
+Features a dark cybersecurity aesthetic, real-time search filtering,
+clipboard integration, batch encryption, and multi-format exports.
 """
 
 from pathlib import Path
 import sys
-
-# Safe Tkinter import with friendly troubleshooting advice
-try:
-    import tkinter as tk
-    from tkinter import ttk, messagebox, filedialog
-except ImportError:
-    print("\n[!] 錯誤：目前的 Python 環境缺少 Tkinter 模組支援。")
-    print("💡 快速解決方案（任選一種）：")
-    print("  1. 【推薦】使用您目前 (base) 環境的 python 直接執行：")
-    print("     python vigenere-vault/gui.py")
-    print("  2. 若要繼續使用 Homebrew 的 python3，請安裝 Tkinter 擴充：")
-    print("     brew install python-tk@3.15")
-    print("  3. 或改用 macOS 系統內建的 Python 3 執行：")
-    print("     /usr/bin/python3 vigenere-vault/gui.py\n")
-    sys.exit(1)
 from typing import List, Optional
 
 # Ensure core module is importable
@@ -30,26 +16,180 @@ if str(current_dir) not in sys.path:
 
 from core import VigenereVault, VaultEntry
 
+try:
+    from PySide6.QtCore import Qt, QSize
+    from PySide6.QtGui import QFont, QIcon, QAction, QColor, QPalette, QKeySequence, QShortcut
+    from PySide6.QtWidgets import (
+        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+        QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+        QHeaderView, QTabWidget, QTextEdit, QMessageBox, QFileDialog,
+        QStatusBar, QFrame, QSplitter, QCheckBox, QAbstractItemView
+    )
+except ImportError:
+    print("\n[!] 錯誤：未找到 PySide6 模組。")
+    print("💡 請在終端機中執行：")
+    print("   pip install PySide6")
+    print("   或：python -m pip install PySide6\n")
+    sys.exit(1)
 
-class VigenereVaultGUI:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.root.title("Vigenère Vault - 機密保險庫")
-        self.root.geometry("820x620")
-        self.root.minsize(700, 500)
+
+# Dark Glass / Cyber-Security Style Sheet (QSS)
+MODERN_DARK_QSS = """
+QMainWindow {
+    background-color: #121318;
+}
+QWidget {
+    background-color: #121318;
+    color: #E2E8F0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+}
+QFrame.CardFrame {
+    background-color: #1A1C23;
+    border: 1px solid #2D3139;
+    border-radius: 10px;
+    padding: 12px;
+}
+QLabel {
+    background-color: transparent;
+    color: #CBD5E1;
+}
+QLabel.TitleLabel {
+    font-size: 18px;
+    font-weight: bold;
+    color: #38BDF8;
+}
+QLabel.SubtitleLabel {
+    font-size: 11px;
+    color: #64748B;
+}
+QLineEdit, QTextEdit {
+    background-color: #0F1015;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: #F8FAFC;
+    selection-background-color: #0284C7;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #38BDF8;
+    background-color: #141720;
+}
+QPushButton {
+    background-color: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 7px 14px;
+    color: #F1F5F9;
+    font-weight: 500;
+}
+QPushButton:hover {
+    background-color: #334155;
+    border-color: #475569;
+}
+QPushButton:pressed {
+    background-color: #0F172A;
+}
+QPushButton.PrimaryBtn {
+    background-color: #0284C7;
+    border: 1px solid #0369A1;
+    color: #FFFFFF;
+    font-weight: bold;
+}
+QPushButton.PrimaryBtn:hover {
+    background-color: #0EA5E9;
+    border-color: #38BDF8;
+}
+QPushButton.DangerBtn {
+    background-color: #881337;
+    border: 1px solid #9F1239;
+    color: #FFE4E6;
+}
+QPushButton.DangerBtn:hover {
+    background-color: #9F1239;
+}
+QTabWidget::pane {
+    border: 1px solid #2D3139;
+    background-color: #1A1C23;
+    border-radius: 8px;
+    top: -1px;
+}
+QTabBar::tab {
+    background-color: #121318;
+    color: #94A3B8;
+    padding: 8px 16px;
+    margin-right: 4px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border: 1px solid transparent;
+}
+QTabBar::tab:selected {
+    background-color: #1A1C23;
+    color: #38BDF8;
+    border: 1px solid #2D3139;
+    border-bottom: 1px solid #1A1C23;
+    font-weight: bold;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #1A1C23;
+    color: #E2E8F0;
+}
+QTableWidget {
+    background-color: #0F1015;
+    border: 1px solid #2D3139;
+    border-radius: 6px;
+    gridline-color: #1E222B;
+    color: #F1F5F9;
+    selection-background-color: #0369A1;
+    selection-color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #1A1C23;
+    color: #94A3B8;
+    font-weight: bold;
+    padding: 6px;
+    border: none;
+    border-bottom: 2px solid #2D3139;
+}
+QScrollBar:vertical {
+    border: none;
+    background: #121318;
+    width: 8px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #334155;
+    min-height: 20px;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #475569;
+}
+QStatusBar {
+    background-color: #0F1015;
+    color: #94A3B8;
+    border-top: 1px solid #1E222B;
+}
+"""
+
+
+class VigenereVaultPySide(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Vigenère Vault 2.0 - 密碼學機密保險庫")
+        self.resize(920, 680)
+        self.setMinimumSize(780, 520)
 
         # State
-        self.current_vault_path = tk.StringVar(value=self._find_default_vault())
-        self.master_key = tk.StringVar()
-        self.show_key_var = tk.BooleanVar(value=False)
-        self.status_var = tk.StringVar(value="就緒 (Ready)")
         self.cached_entries: List[VaultEntry] = []
+        self.filtered_entries: List[VaultEntry] = []
+        self.default_vault_path = self._locate_default_vault()
 
-        self._setup_style()
-        self._build_ui()
-        self._update_vault_status_indicator()
+        self._init_ui()
+        self.setStyleSheet(MODERN_DARK_QSS)
+        self._update_vault_file_status()
 
-    def _find_default_vault(self) -> str:
+    def _locate_default_vault(self) -> Path:
         candidates = [
             Path("Secrets.txt"),
             current_dir / "Secrets.txt",
@@ -57,341 +197,420 @@ class VigenereVaultGUI:
         ]
         for p in candidates:
             if p.exists():
-                return str(p.resolve())
-        return str((current_dir.parent / "Secrets.txt").resolve())
+                return p.resolve()
+        return (current_dir.parent / "Secrets.txt").resolve()
 
-    def _setup_style(self):
-        style = ttk.Style()
-        # Use clam/default depending on OS
-        if "aqua" in style.theme_names():
-            style.theme_use("aqua")
-        else:
-            style.theme_use("clam")
+    def _init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(16, 16, 16, 12)
+        main_layout.setSpacing(12)
 
-        # Custom styling
-        style.configure("Header.TLabel", font=("Helvetica", 14, "bold"))
-        style.configure("SubHeader.TLabel", font=("Helvetica", 11), foreground="#555")
-        style.configure("Accent.TButton", font=("Helvetica", 11, "bold"))
-        style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"))
-        style.configure("Treeview", rowheight=26, font=("Helvetica", 10))
+        # Top Control Card (Vault path & Key)
+        top_card = QFrame()
+        top_card.setProperty("class", "CardFrame")
+        top_layout = QVBoxLayout(top_card)
+        top_layout.setContentsMargins(12, 12, 12, 12)
+        top_layout.setSpacing(8)
 
-    def _build_ui(self):
-        # Main layout frame
-        main_frame = ttk.Frame(self.root, padding="14")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Row 1: Header title
+        title_box = QHBoxLayout()
+        title_lbl = QLabel("🔐 Vigenère Vault")
+        title_lbl.setProperty("class", "TitleLabel")
+        subtitle_lbl = QLabel("SHA-256 Nonce-Salted Multi-Tenant Key Vault")
+        subtitle_lbl.setProperty("class", "SubtitleLabel")
+        title_box.addWidget(title_lbl)
+        title_box.addWidget(subtitle_lbl)
+        title_box.addStretch()
+        top_layout.addLayout(title_box)
 
-        # 1. Top Panel: Vault File & Master Key
-        top_frame = ttk.LabelFrame(main_frame, text=" 保險庫與主金鑰設定 ", padding="10")
-        top_frame.pack(fill=tk.X, pady=(0, 10))
+        # Row 2: File Selector
+        file_row = QHBoxLayout()
+        file_lbl = QLabel("保險庫檔案:")
+        file_lbl.setFixedWidth(80)
+        self.file_input = QLineEdit(str(self.default_vault_path))
+        self.file_input.textChanged.connect(self._update_vault_file_status)
 
-        # Vault file row
-        ttk.Label(top_frame, text="保險庫檔案:").grid(row=0, column=0, sticky=tk.W, padx=4, pady=4)
-        file_entry = ttk.Entry(top_frame, textvariable=self.current_vault_path, width=48)
-        file_entry.grid(row=0, column=1, sticky=tk.EW, padx=4, pady=4)
-        
-        btn_box = ttk.Frame(top_frame)
-        btn_box.grid(row=0, column=2, padx=4, pady=4)
-        ttk.Button(btn_box, text="瀏覽...", command=self._browse_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_box, text="新建 Vault", command=self._create_new_vault).pack(side=tk.LEFT, padx=2)
+        browse_btn = QPushButton("瀏覽檔案...")
+        browse_btn.clicked.connect(self._browse_vault_file)
+        new_vault_btn = QPushButton("新建 Vault")
+        new_vault_btn.clicked.connect(self._create_new_vault)
 
-        # Master Key row
-        ttk.Label(top_frame, text="解密金鑰 (Key):").grid(row=1, column=0, sticky=tk.W, padx=4, pady=4)
-        self.key_entry = ttk.Entry(top_frame, textvariable=self.master_key, show="*", width=36)
-        self.key_entry.grid(row=1, column=1, sticky=tk.EW, padx=4, pady=4)
-        self.key_entry.bind("<Return>", lambda e: self.query_secrets())
+        file_row.addWidget(file_lbl)
+        file_row.addWidget(self.file_input)
+        file_row.addWidget(browse_btn)
+        file_row.addWidget(new_vault_btn)
+        top_layout.addLayout(file_row)
 
-        key_action_box = ttk.Frame(top_frame)
-        key_action_box.grid(row=1, column=2, padx=4, pady=4)
-        ttk.Checkbutton(
-            key_action_box,
-            text="顯示金鑰",
-            variable=self.show_key_var,
-            command=self._toggle_key_visibility
-        ).pack(side=tk.LEFT, padx=4)
+        # Row 3: Master Key Input
+        key_row = QHBoxLayout()
+        key_lbl = QLabel("主解密金鑰:")
+        key_lbl.setFixedWidth(80)
 
-        ttk.Button(
-            key_action_box,
-            text="🔓 解密查詢",
-            style="Accent.TButton",
-            command=self.query_secrets
-        ).pack(side=tk.LEFT, padx=4)
+        self.key_input = QLineEdit()
+        self.key_input.setPlaceholderText("請輸入對應此機密的 Master Key...")
+        self.key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key_input.returnPressed.connect(self.query_secrets)
 
-        top_frame.columnconfigure(1, weight=1)
+        self.show_key_check = QCheckBox("顯示金鑰")
+        self.show_key_check.toggled.connect(self._toggle_key_visibility)
 
-        # 2. Notebook Tabs
-        self.notebook = ttk.Notebook(main_frame)
-        self.notebook.pack(fill=tk.BOTH, expand=True, pady=4)
+        self.unlock_btn = QPushButton("🔓 解密查詢 (Unlock)")
+        self.unlock_btn.setProperty("class", "PrimaryBtn")
+        self.unlock_btn.clicked.connect(self.query_secrets)
 
-        # Tab 1: Secrets Browser & Query
-        self.tab_query = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.tab_query, text=" 🔍 機密清單 (Query) ")
-        self._build_query_tab()
+        key_row.addWidget(key_lbl)
+        key_row.addWidget(self.key_input)
+        key_row.addWidget(self.show_key_check)
+        key_row.addWidget(self.unlock_btn)
+        top_layout.addLayout(key_row)
+
+        main_layout.addWidget(top_card)
+
+        # Main Notebook Tabs
+        self.tabs = QTabWidget()
+        main_layout.addWidget(self.tabs, stretch=1)
+
+        # Tab 1: Secrets Query & Management
+        self.tab_query = QWidget()
+        self._init_query_tab()
+        self.tabs.addTab(self.tab_query, " 🔍 機密清單 (Secrets Vault) ")
 
         # Tab 2: Add Secrets
-        self.tab_add = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.tab_add, text=" ➕ 新增機密 (Add) ")
-        self._build_add_tab()
+        self.tab_add = QWidget()
+        self._init_add_tab()
+        self.tabs.addTab(self.tab_add, " ➕ 新增機密 (Add Secret) ")
 
-        # Tab 3: Security & Cryptography Info
-        self.tab_info = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.tab_info, text=" ℹ️ 密碼學架構 (Specs) ")
-        self._build_info_tab()
+        # Tab 3: Technical Docs & Mindset
+        self.tab_docs = QWidget()
+        self._init_docs_tab()
+        self.tabs.addTab(self.tab_docs, " ℹ️ 密碼學技術與思維 (Architecture) ")
 
-        # 3. Bottom Status Bar
-        status_bar = ttk.Frame(self.root, relief=tk.SUNKEN, padding=(8, 3))
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        self.lbl_status = ttk.Label(status_bar, textvariable=self.status_var, font=("Helvetica", 9))
-        self.lbl_status.pack(side=tk.LEFT)
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("就緒 (Ready)")
 
-    def _build_query_tab(self):
-        # Action Toolbar
-        toolbar = ttk.Frame(self.tab_query)
-        toolbar.pack(fill=tk.X, pady=(0, 6))
+    def _init_query_tab(self):
+        layout = QVBoxLayout(self.tab_query)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
-        ttk.Button(toolbar, text="📋 複製選取機密", command=self._copy_selected_secret).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="📤 匯出 Markdown", command=lambda: self._export_secrets("md")).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="📄 匯出純文字檔", command=lambda: self._export_secrets("txt")).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="🗑️ 刪除所選機密", command=self._delete_selected_secret).pack(side=tk.RIGHT, padx=3)
+        # Search / Filter Bar + Action Buttons
+        toolbar = QHBoxLayout()
+        search_lbl = QLabel("即時搜尋:")
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("輸入關鍵字過濾已解密的明文...")
+        self.search_input.textChanged.connect(self._filter_secrets)
 
-        # Treeview Table
-        tree_frame = ttk.Frame(self.tab_query)
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        self.copy_btn = QPushButton("📋 複製選取機密")
+        self.copy_btn.clicked.connect(self._copy_selected_secret)
 
-        columns = ("idx", "line", "salt", "secret")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", selectmode="browse")
-        self.tree.heading("idx", text="#", anchor=tk.CENTER)
-        self.tree.heading("line", text="行號 (Line)", anchor=tk.CENTER)
-        self.tree.heading("salt", text="隨機鹽值 (Salt)", anchor=tk.CENTER)
-        self.tree.heading("secret", text="解密明文 (Plaintext Secret)", anchor=tk.W)
+        self.export_md_btn = QPushButton("📤 匯出 Markdown")
+        self.export_md_btn.clicked.connect(lambda: self._export_secrets("md"))
 
-        self.tree.column("idx", width=45, minwidth=35, anchor=tk.CENTER)
-        self.tree.column("line", width=90, minwidth=70, anchor=tk.CENTER)
-        self.tree.column("salt", width=120, minwidth=90, anchor=tk.CENTER)
-        self.tree.column("secret", width=460, minwidth=200, anchor=tk.W)
+        self.export_txt_btn = QPushButton("📄 匯出 TXT")
+        self.export_txt_btn.clicked.connect(lambda: self._export_secrets("txt"))
 
-        scrollbar_y = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar_y.set)
+        self.delete_btn = QPushButton("🗑️ 刪除選取")
+        self.delete_btn.setProperty("class", "DangerBtn")
+        self.delete_btn.clicked.connect(self._delete_selected_secret)
 
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+        toolbar.addWidget(search_lbl)
+        toolbar.addWidget(self.search_input, stretch=1)
+        toolbar.addWidget(self.copy_btn)
+        toolbar.addWidget(self.export_md_btn)
+        toolbar.addWidget(self.export_txt_btn)
+        toolbar.addWidget(self.delete_btn)
+        layout.addLayout(toolbar)
 
-        # Double click to copy
-        self.tree.bind("<Double-1>", lambda e: self._copy_selected_secret())
+        # Table Widget
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["#", "保險庫行號", "隨機鹽值 (Salt)", "解密明文 (Plaintext)"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.doubleClicked.connect(self._copy_selected_secret)
+        layout.addWidget(self.table)
 
-    def _build_add_tab(self):
-        container = ttk.Frame(self.tab_add)
-        container.pack(fill=tk.BOTH, expand=True)
+    def _init_add_tab(self):
+        layout = QVBoxLayout(self.tab_add)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(12)
 
-        # Single add box
-        box_single = ttk.LabelFrame(container, text=" 新增單筆機密 ", padding="10")
-        box_single.pack(fill=tk.X, pady=(0, 10))
+        # Single Add Box
+        single_frame = QFrame()
+        single_frame.setProperty("class", "CardFrame")
+        s_layout = QVBoxLayout(single_frame)
+        s_layout.addWidget(QLabel("<b>單筆機密加密寫入:</b>"))
 
-        ttk.Label(box_single, text="機密文字:").pack(anchor=tk.W, pady=2)
-        self.single_secret_entry = ttk.Entry(box_single, font=("Helvetica", 11))
-        self.single_secret_entry.pack(fill=tk.X, pady=4)
-        self.single_secret_entry.bind("<Return>", lambda e: self._add_single_secret())
+        s_input_row = QHBoxLayout()
+        self.single_input = QLineEdit()
+        self.single_input.setPlaceholderText("請輸入要加密存放的密碼、Token 或機密文字...")
+        self.single_input.returnPressed.connect(self._add_single_secret)
 
-        ttk.Button(box_single, text="➕ 加密並儲存", command=self._add_single_secret).pack(anchor=tk.E, pady=4)
+        s_add_btn = QPushButton("➕ 加密寫入")
+        s_add_btn.setProperty("class", "PrimaryBtn")
+        s_add_btn.clicked.connect(self._add_single_secret)
 
-        # Batch add box
-        box_batch = ttk.LabelFrame(container, text=" 批次新增機密 (一行一筆) ", padding="10")
-        box_batch.pack(fill=tk.BOTH, expand=True)
+        s_input_row.addWidget(self.single_input, stretch=1)
+        s_input_row.addWidget(s_add_btn)
+        s_layout.addLayout(s_input_row)
+        layout.addWidget(single_frame)
 
-        self.batch_text = tk.Text(box_batch, height=8, font=("Helvetica", 10))
-        self.batch_text.pack(fill=tk.BOTH, expand=True, pady=4)
+        # Batch Add Box
+        batch_frame = QFrame()
+        batch_frame.setProperty("class", "CardFrame")
+        b_layout = QVBoxLayout(batch_frame)
+        b_layout.addWidget(QLabel("<b>批次機密寫入 (一行一筆):</b>"))
 
-        ttk.Button(box_batch, text="📥 批次加密並儲存", command=self._add_batch_secrets).pack(anchor=tk.E, pady=4)
+        self.batch_text = QTextEdit()
+        self.batch_text.setPlaceholderText("可直接貼上多行文字，每一行將會自動分配獨立的 8 位數 Salt 並加密...")
+        b_layout.addWidget(self.batch_text)
 
-    def _build_info_tab(self):
-        info_text = tk.Text(self.tab_info, wrap=tk.WORD, font=("Courier", 10), padx=8, pady=8)
-        info_text.pack(fill=tk.BOTH, expand=True)
+        b_btn_row = QHBoxLayout()
+        b_btn_row.addStretch()
+        b_add_btn = QPushButton("📥 批次加密全部寫入")
+        b_add_btn.setProperty("class", "PrimaryBtn")
+        b_add_btn.clicked.connect(self._add_batch_secrets)
+        b_btn_row.addWidget(b_add_btn)
+        b_layout.addLayout(b_btn_row)
 
-        specs = (
-            "==========================================================\n"
-            "       Vigenère Vault 密碼學架構與規格摘要\n"
-            "==========================================================\n\n"
-            "1. 金鑰延伸 (KDF / Keystream):\n"
-            "   - SHA-256(Random_Salt_8 + Key) -> 64-char Hex Keystream\n"
-            "   - 每個十六進位字元 (0~15) 作為擴充維吉尼亞密碼的位移量。\n\n"
-            "2. 隨機加鹽 (Salt / Nonce):\n"
-            "   - 每次加密自動生成 8 位數密碼學安全隨機碼 (secrets.randbelow)。\n"
-            "   - 達成語意安全 (Semantic Security)，防範彩虹表與重送比對。\n\n"
+        layout.addWidget(batch_frame, stretch=1)
+
+    def _init_docs_tab(self):
+        layout = QVBoxLayout(self.tab_docs)
+        layout.setContentsMargins(12, 12, 12, 12)
+
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setFont(QFont("Menlo", 12))
+
+        doc_content = (
+            "========================================================================\n"
+            "                 Vigenère Vault 密碼學技術與心態演進規格\n"
+            "========================================================================\n\n"
+            "一、核心技術與演算法 (Core Primitives)\n"
+            "------------------------------------------------------------------------\n"
+            "1. 隨機加鹽 (8-digit Salt / Nonce):\n"
+            "   每次加密皆由 secrets.randbelow() 生成 8 位數隨機數字 (10000000..99999999)。\n"
+            "   達成語意安全 (Semantic Security)，防範彩虹表與重送比對。\n\n"
+            "2. SHA-256 偽隨機流位移 (Hash-based Keystream Generation):\n"
+            "   以 SHA256(Salt + Key) 展開成 64 字元的十六進位串流，作為維吉尼亞密碼的動態位移量。\n\n"
             "3. 擴充字元集 (Extended Polyalphabetic Substitution):\n"
-            "   - 英文字母 (a-z, A-Z, mod 26)\n"
-            "   - 33 種常見 ASCII 特殊符號與空格 (mod 33)\n\n"
+            "   支援大小寫英文字母 (mod 26) 與 33 種常見 ASCII 特殊符號 (mod 33)。\n\n"
             "4. 明文前綴驗證與多金鑰隔離 (Plausible Deniability):\n"
-            "   - 密文封裝: Salt(8) + Encrypt(Key + Secret)\n"
-            "   - 只有持有正確 Key 的使用者能解密驗證前綴，不同使用者的資料在同一個檔案內完全隔離。\n\n"
-            "詳細分析請見專案 docs/technical-analysis.md。\n"
+            "   密文格式: Salt(8) + Encrypt(Key + Secret)。\n"
+            "   解密時只有 Key 符合者能解出並通過前綴檢驗，不同金鑰的機密在同個檔案內互不干擾、\n"
+            "   且外界無法探知檔案內究竟包含多少組金鑰。\n\n"
+            "二、四步演化心智模型 (The 4-Step Evolutionary Mindset)\n"
+            "------------------------------------------------------------------------\n"
+            "  [基礎代換]   維吉尼亞/凱撒加密法。\n"
+            "      ↓\n"
+            "  [克服週期]   使用 SHA-256 展開非循環金鑰流。\n"
+            "      ↓\n"
+            "  [語意安全]   引入 8-digit Salt 防彩虹表。\n"
+            "      ↓\n"
+            "  [身分隔離]   前綴 Key 比對驗證，實現單檔多 Key 可抵賴隔離。\n\n"
+            "詳細技術文件請閱讀: docs/technical-analysis.md 與 docs/gui-architecture.md。\n"
         )
-        info_text.insert(tk.END, specs)
-        info_text.configure(state=tk.DISABLED)
+        text_edit.setText(doc_content)
+        layout.addWidget(text_edit)
 
-    # ----------------------------------------------------
-    # Event Handlers & Core Actions
-    # ----------------------------------------------------
-    def _toggle_key_visibility(self):
-        self.key_entry.configure(show="" if self.show_key_var.get() else "*")
+    # ------------------------------------------------------------------
+    # Actions & Event Handlers
+    # ------------------------------------------------------------------
+    def _toggle_key_visibility(self, checked: bool):
+        self.key_input.setEchoMode(QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password)
 
-    def _browse_file(self):
-        path = filedialog.askopenfilename(
-            title="選擇保險庫檔案",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+    def _browse_vault_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "選擇保險庫檔案", str(self.default_vault_path.parent), "Text Files (*.txt);;All Files (*)"
         )
-        if path:
-            self.current_vault_path.set(path)
-            self._update_vault_status_indicator()
+        if file_path:
+            self.file_input.setText(file_path)
+            self._update_vault_file_status()
 
     def _create_new_vault(self):
-        path = filedialog.asksaveasfilename(
-            title="新建保險庫檔案",
-            defaultextension=".txt",
-            filetypes=[("Text files", "*.txt")]
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "新建保險庫檔案", "Secrets.txt", "Text Files (*.txt)"
         )
-        if path:
-            vault = VigenereVault(path)
+        if file_path:
+            vault = VigenereVault(file_path)
             vault.ensure_vault_exists()
-            self.current_vault_path.set(path)
-            self._update_vault_status_indicator()
-            messagebox.showinfo("成功", f"已建立新的保險庫檔案：\n{path}")
+            self.file_input.setText(file_path)
+            self._update_vault_file_status()
+            QMessageBox.information(self, "成功", f"已建立新的空白保險庫：\n{file_path}")
 
-    def _update_vault_status_indicator(self):
-        p = Path(self.current_vault_path.get())
-        if p.exists():
-            self.status_var.set(f"已就緒 | 保險庫: {p.name} ({p.stat().st_size} bytes)")
+    def _update_vault_file_status(self):
+        p = Path(self.file_input.text().strip())
+        if p.exists() and p.is_file():
+            size = p.stat().st_size
+            self.status_bar.showMessage(f"保險庫檔案已載入: {p.name} ({size} bytes)")
         else:
-            self.status_var.set(f"檔案不存在 (將於新增機密時自動建立): {p.name}")
+            self.status_bar.showMessage(f"檔案不存在 (將於寫入時自動建立): {p.name}")
 
     def query_secrets(self):
-        key = self.master_key.get()
+        key = self.key_input.text().strip()
         if not key:
-            messagebox.showwarning("提示", "請先輸入解密金鑰 (Key)！")
-            self.key_entry.focus_set()
+            QMessageBox.warning(self, "警告", "請先輸入解密金鑰 (Master Key)！")
+            self.key_input.setFocus()
             return
 
-        vault = VigenereVault(self.current_vault_path.get())
+        vault_path = self.file_input.text().strip()
+        vault = VigenereVault(vault_path)
         if not vault.exists():
-            messagebox.showinfo("提示", f"保險庫檔案尚未存在：\n{vault.path}")
+            QMessageBox.information(self, "提示", f"保險庫檔案尚未存在：\n{vault.path}")
             return
 
         self.cached_entries = vault.query_secrets(key)
+        self.search_input.clear()
+        self._render_table(self.cached_entries)
+        self.tabs.setCurrentIndex(0)
 
-        # Clear existing items in tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-        for idx, entry in enumerate(self.cached_entries, start=1):
-            self.tree.insert("", tk.END, iid=str(idx), values=(
-                idx,
-                f"L{entry.line_number}",
-                entry.salt,
-                entry.secret
-            ))
-
-        self.notebook.select(self.tab_query)
         count = len(self.cached_entries)
         if count > 0:
-            self.status_var.set(f"查詢完成：成功解密 {count} 筆機密。")
+            self.status_bar.showMessage(f"解密成功！找到 {count} 筆符合金鑰的機密。")
         else:
-            self.status_var.set("查詢完成：此檔案中未找到符合此金鑰的機密。")
-            messagebox.showinfo("查詢結果", "未找到符合此金鑰的機密。\n（可能金鑰錯誤，或該機密屬於其他金鑰）")
+            self.status_bar.showMessage("解密完成：未找到符合此金鑰的機密。")
+            QMessageBox.information(
+                self, "查詢結果", "未找到符合此金鑰的機密。\n（可能金鑰錯誤，或該機密屬於其他金鑰隔離）"
+            )
+
+    def _render_table(self, entries: List[VaultEntry]):
+        self.filtered_entries = entries
+        self.table.setRowCount(len(entries))
+        for row_idx, entry in enumerate(entries):
+            # Column 0: Index
+            item_idx = QTableWidgetItem(str(row_idx + 1))
+            item_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row_idx, 0, item_idx)
+
+            # Column 1: Line number
+            item_line = QTableWidgetItem(f"L{entry.line_number}")
+            item_line.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row_idx, 1, item_line)
+
+            # Column 2: Salt
+            item_salt = QTableWidgetItem(entry.salt)
+            item_salt.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row_idx, 2, item_salt)
+
+            # Column 3: Secret plaintext
+            item_secret = QTableWidgetItem(entry.secret)
+            item_secret.setFont(QFont("Menlo", 12))
+            self.table.setItem(row_idx, 3, item_secret)
+
+    def _filter_secrets(self, text: str):
+        query = text.strip().lower()
+        if not query:
+            self._render_table(self.cached_entries)
+            return
+
+        matched = [e for e in self.cached_entries if query in e.secret.lower()]
+        self._render_table(matched)
+        self.status_bar.showMessage(f"搜尋過濾：共 {len(matched)} / {len(self.cached_entries)} 筆符合。")
 
     def _copy_selected_secret(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("提示", "請先在列表中選取一筆機密！")
+        current_row = self.table.currentRow()
+        if current_row < 0 or current_row >= len(self.filtered_entries):
+            QMessageBox.warning(self, "提示", "請先在列表中選取一筆機密！")
             return
-        item_id = selected[0]
-        secret_val = self.tree.item(item_id, "values")[3]
 
-        self.root.clipboard_clear()
-        self.root.clipboard_append(secret_val)
-        self.status_var.set("已將機密複製到系統剪貼簿！")
-        messagebox.showinfo("複製成功", "已將機密複製到剪貼簿！")
+        secret_text = self.filtered_entries[current_row].secret
+        clipboard = QApplication.clipboard()
+        clipboard.setText(secret_text)
+        self.status_bar.showMessage(f"已複製機密至剪貼簿！")
+        QMessageBox.information(self, "複製成功", "已將機密複製到系統剪貼簿！")
 
     def _export_secrets(self, fmt: str):
         if not self.cached_entries:
-            messagebox.showwarning("提示", "目前沒有已解密的機密可供匯出，請先執行查詢！")
+            QMessageBox.warning(self, "提示", "目前沒有已解密的機密可供匯出，請先執行解密查詢！")
             return
 
         ext = f".{fmt}"
-        filename = f"decodedSecrets{ext}"
-        save_path = filedialog.asksaveasfilename(
-            title=f"匯出為 {fmt.upper()} 檔案",
-            initialfile=filename,
-            defaultextension=ext,
-            filetypes=[(f"{fmt.upper()} file", f"*{ext}")]
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, f"匯出為 {fmt.upper()}", f"decodedSecrets{ext}", f"{fmt.upper()} Files (*{ext})"
         )
         if save_path:
-            vault = VigenereVault(self.current_vault_path.get())
-            out_p = vault.export_entries(self.cached_entries, self.master_key.get(), save_path, fmt)
-            messagebox.showinfo("匯出成功", f"已成功匯出 {len(self.cached_entries)} 筆機密至：\n{out_p}")
-            self.status_var.set(f"匯出成功: {out_p.name}")
+            vault = VigenereVault(self.file_input.text().strip())
+            out_p = vault.export_entries(self.cached_entries, self.key_input.text().strip(), save_path, fmt)
+            QMessageBox.information(self, "匯出成功", f"已成功匯出 {len(self.cached_entries)} 筆機密至：\n{out_p}")
+            self.status_bar.showMessage(f"匯出完成: {out_p.name}")
 
     def _delete_selected_secret(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("提示", "請先在列表中選取要刪除的機密！")
+        current_row = self.table.currentRow()
+        if current_row < 0 or current_row >= len(self.filtered_entries):
+            QMessageBox.warning(self, "提示", "請先在列表中選取要刪除的機密！")
             return
 
-        item_id = selected[0]
-        idx = int(self.tree.item(item_id, "values")[0])
-        entry = self.cached_entries[idx - 1]
-
-        confirm = messagebox.askyesno(
+        entry = self.filtered_entries[current_row]
+        reply = QMessageBox.question(
+            self,
             "確認刪除",
-            f"確定要從保險庫中刪除以下機密嗎？\n\n行號: L{entry.line_number}\n內容: {entry.secret}\n\n此動作無法復原！"
+            f"確定要自保險庫中永久刪除此機密嗎？\n\n行號: L{entry.line_number}\n內容: {entry.secret}\n\n此動作無法還原！",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        if confirm:
-            vault = VigenereVault(self.current_vault_path.get())
+        if reply == QMessageBox.StandardButton.Yes:
+            vault = VigenereVault(self.file_input.text().strip())
             vault.delete_by_line_numbers([entry.line_number])
-            messagebox.showinfo("成功", "該機密已自保險庫中刪除。")
+            QMessageBox.information(self, "成功", "該機密已自保險庫中刪除！")
             self.query_secrets()
 
     def _add_single_secret(self):
-        key = self.master_key.get()
+        key = self.key_input.text().strip()
         if not key:
-            messagebox.showwarning("提示", "請先在上方輸入主金鑰 (Key)！")
-            self.key_entry.focus_set()
+            QMessageBox.warning(self, "警告", "請先在上方輸入主金鑰 (Key)！")
+            self.key_input.setFocus()
             return
 
-        secret = self.single_secret_entry.get().strip()
+        secret = self.single_input.text().strip()
         if not secret:
-            messagebox.showwarning("提示", "請輸入機密文字！")
+            QMessageBox.warning(self, "警告", "請輸入機密文字！")
             return
 
-        vault = VigenereVault(self.current_vault_path.get())
+        vault = VigenereVault(self.file_input.text().strip())
         entry = vault.add_secret(key, secret)
-        self.single_secret_entry.delete(0, tk.END)
-        self._update_vault_status_indicator()
-        messagebox.showinfo("新增成功", f"機密已成功加密寫入！\n行號: L{entry.line_number}\nSalt: {entry.salt}")
+        self.single_input.clear()
+        self._update_vault_file_status()
+        QMessageBox.information(
+            self, "新增成功", f"機密已成功加密寫入！\n行號: L{entry.line_number}\nSalt: {entry.salt}"
+        )
         self.query_secrets()
 
     def _add_batch_secrets(self):
-        key = self.master_key.get()
+        key = self.key_input.text().strip()
         if not key:
-            messagebox.showwarning("提示", "請先在上方輸入主金鑰 (Key)！")
-            self.key_entry.focus_set()
+            QMessageBox.warning(self, "警告", "請先在上方輸入主金鑰 (Key)！")
+            self.key_input.setFocus()
             return
 
-        text = self.batch_text.get("1.0", tk.END).strip()
+        text = self.batch_text.toPlainText().strip()
         if not text:
-            messagebox.showwarning("提示", "批次輸入框內無文字！")
+            QMessageBox.warning(self, "警告", "批次輸入框內無文字！")
             return
 
         lines = [line.strip() for line in text.split("\n") if line.strip()]
-        vault = VigenereVault(self.current_vault_path.get())
+        vault = VigenereVault(self.file_input.text().strip())
         added = vault.add_secrets_batch(key, lines)
-        self.batch_text.delete("1.0", tk.END)
-        self._update_vault_status_indicator()
-        messagebox.showinfo("批次新增成功", f"已成功加密並新增 {len(added)} 筆機密！")
+        self.batch_text.clear()
+        self._update_vault_file_status()
+        QMessageBox.information(self, "批次新增成功", f"已成功加密並新增 {len(added)} 筆機密！")
         self.query_secrets()
 
 
 def main():
-    root = tk.Tk()
-    app = VigenereVaultGUI(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = VigenereVaultPySide()
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
