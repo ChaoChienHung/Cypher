@@ -1,282 +1,194 @@
+#!/usr/bin/env python3
 """
-Secret Format
-SHA Key: Random Number (8) + Key
-Context for Encryption: Key + Context
-Encryption Mode:
- - SHA-256 the Key as the Vigenère Cipher
- - Huffman Code Compression
-
-Decryption Mode:
- - Huffman Code Decompression
- - Decode the Key and find the Context that starts with Key, and remove Key
+Vigenère Vault - Main Console Entrypoint.
+Optimized for robustness, error handling, and unified architecture with core.py.
 """
 
-import hashlib
-import random
-from typing import List, Dict
+from pathlib import Path
+import sys
 
-def getHashedstring(key: str) -> str:
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(key.encode('utf-8'))  # Ensure to encode to bytes
+# Ensure local directory is in path
+current_dir = Path(__file__).resolve().parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
 
-    # Get the hexadecimal digest (the final hash)
-    hashedString: str = sha256_hash.hexdigest()
-    return hashedString
+from core import (
+    VigenereVault,
+    get_hashed_string,
+    vigenere_cipher,
+    encrypt_secret_line,
+    decrypt_secret_line,
+)
 
-def vigenereCipher(inputString: str, key: str, mode: bool=True) -> str:
-    """
-    Encrypts or decrypts a string using the Vigenère cipher.
-    If used for decryption, the key will shift characters in the opposite direction.
-    """
-    keyLength = len(key)
-    keyInts = [int(char, 16) for char in key]
-    specialSymbols = [
-    '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', 
-    '-', '_', '=', '+', '[', ']', '{', '}', '\\', '|', 
-    ';', ':', "\'", '\"', ',', '.', '/', '<', '>', '?', 
-    '~', '`', ' ',]
-    
-    resultString = []
-    for i, char in enumerate(inputString):
-        shift = keyInts[i % keyLength]
-        
-        if char.isalpha():
-            start = ord('a') if char.islower() else ord('A')
-            if mode == False:  # If we are decrypting, we reverse the shift
-                newChar = chr(start + (ord(char) - start - shift) % 26)  # Reverse shift
-            else:  # Otherwise, we encrypt normally
-                newChar = chr(start + (ord(char) - start + shift) % 26)
-            
-            resultString.append(newChar)
+# Backward-compatible function aliases
+getHashedstring = get_hashed_string
+vigenereCipher = vigenere_cipher
 
-        elif char in specialSymbols:
-            length: int = len(specialSymbols)
-            if mode == False:
-                newChar = specialSymbols[((specialSymbols.index(char) - shift) % length + length) % length]
-            else:
-                newChar = specialSymbols[(specialSymbols.index(char) + shift) % length]
-        
-            resultString.append(newChar)
 
-        else:
-            resultString.append(char)
+def run_legacy_interactive():
+    default_vault_file = "Secrets.txt"
+    # Resolve default path: look locally or in parent dir
+    if not Path(default_vault_file).exists() and (current_dir.parent / default_vault_file).exists():
+        default_vault_file = str(current_dir.parent / default_vault_file)
 
-    return ''.join(resultString)
+    while True:
+        print("\n" + "=" * 48)
+        print("🔐 Vigenère Vault - Console Manager")
+        print("=" * 48)
+        print("Please enter your command:")
+        print("(1) Create Encoded Text")
+        print("(2) Decode Encoded Text")
+        print("(3) Modify Encoded Text")
+        print("(4) Launch Graphical UI (GUI)")
+        print("(5) Exit")
+        print("=" * 48)
 
-def encryptSecret(inputString: str, hashedString: str) -> str:
-    encodedText: str = vigenereCipher(inputString, hashedString, True)
+        choice = input("Your choice (1-5): ").strip()
 
-    return encodedText
+        if choice == "1":
+            filename = input("Enter vault filename [Secrets.txt]: ").strip() or "Secrets.txt"
+            if not filename.endswith(".txt"):
+                filename += ".txt"
+            vault = VigenereVault(filename)
+            key = input("Please enter your Key: ").strip()
+            if not key:
+                print("[!] Key cannot be empty.")
+                continue
 
-def decryptSecret(secret: str, hashedString: str) -> str:
-    decodedText: str = vigenereCipher(secret, hashedString, False)
-    return decodedText
-    
-
-while True:
-    print("Please enter your comand:")
-    print("(1) Create Encoded Text")
-    print("(2) Decode Encoded Text")
-    print("(3) Modify Encoded Text")
-    print("(4) Exit")
-    command: int = int(input())
-    if command == 1:
-        secrets: str = input()
-        with open(f"{secrets}.txt", 'w') as f:
-            print("Please choose a way to encode your Secrets:")
-            print("(1) Through Console")
-            print("(2) Through Text File")
-            print("(3) Through Markdown File")
-            command: int = int(input())
-            if command == 1:
-                print("Please enter your Key:")
-                key: str = input()
-                while True:
-                    print("Please enter your Secret:")
-                    secret: str = input()
-                    # Generate a random 8-digit number
-                    randomNumber = str(random.randint(10000000, 99999999))
-                    hashedString: str = getHashedstring(randomNumber + key)
-                    encrypted: str = encryptSecret(key + secret, hashedString)
-                    f.write(randomNumber + encrypted + "\n")
-                    print("Do you want to continue with the same Key?")
-                    print("(1) Yes")
-                    print("(2) No")
-                    command: int = int(input())
-                    if command == 2:
-                        break
-
-    elif command == 2:
-        # encodedText: str = input("Please enter your Secrets:\n")
-        encodedText: str = "Secrets.txt"
-        with open(encodedText, 'r') as f:
-            resultedString = {}
+            count = 0
             while True:
-                f.seek(0)
-                print("Please enter the key of the Secrets:")
-                key: str = input()
-                
-                resultedList = list()
-                for line in f:
-                    hashedString: str = getHashedstring(line[:8] + key)
-                    decrypted: str = decryptSecret(line[8:], hashedString)
-                    if decrypted.startswith(key):
-                        decrypted = decrypted[len(key):]
-                        decrypted = decrypted.rstrip('\n')
-                        resultedList.append(decrypted)
+                secret = input(f"Please enter Secret #{count + 1}: ").strip()
+                if secret:
+                    entry = vault.add_secret(key, secret)
+                    count += 1
+                    print(f"[✓] Encrypted and saved to line {entry.line_number} (Salt: {entry.salt})")
 
-                resultedList.sort(key=lambda x: x.lower())
-                resultedString[key] = resultedList
-                print("Do you want to continue decoding Keys?")
-                print("(1) Yes")
-                print("(2) No")
-                command: int = int(input())
-                if command == 2:
+                cont = input("Do you want to continue with the same Key? (1) Yes, (2) No: ").strip()
+                if cont == "2":
                     break
 
-            print("Please choose a way to show your decoded Secrets:")
+            print(f"[+] Total {count} secrets written to {vault.path.name}.")
+
+        elif choice == "2":
+            filename = input(f"Enter vault filename [{default_vault_file}]: ").strip() or default_vault_file
+            vault = VigenereVault(filename)
+            if not vault.exists():
+                print(f"[!] Vault file does not exist: {vault.path}")
+                continue
+
+            key = input("Please enter the Key of the Secrets: ").strip()
+            entries = vault.query_secrets(key)
+
+            if not entries:
+                print(f"[!] No secrets found matching key '{key}'.")
+                continue
+
+            print(f"\n[+] Found {len(entries)} secrets.")
+            print("Please choose how to display your decoded Secrets:")
             print("(1) Through Console")
-            print("(2) Through Text File")
-            print("(3) Through Markdown File")
-            command: int = int(input())
-            if command == 1:
-                print("====================================================")
-                print("Below are the Secrets encoded with the entered Key:\n")
-                print("====================================================")
-                for key, results in resultedString.items():
-                    if len(results) == 0:
+            print("(2) Export to Text File (decodedSecrets.txt)")
+            print("(3) Export to Markdown File (decodedSecrets.md)")
+            out_choice = input("Select (1-3) [1]: ").strip() or "1"
+
+            if out_choice == "1":
+                print("\n" + "=" * 52)
+                print(f"Below are the Secrets encoded with Key: {key}")
+                print("=" * 52)
+                for i, entry in enumerate(entries, start=1):
+                    print(f"{i}. (Line {entry.line_number} | Salt: {entry.salt}) -> {entry.secret}")
+                print("=" * 52)
+
+            elif out_choice == "2":
+                out_path = vault.export_entries(entries, key, "decodedSecrets.txt", fmt="txt")
+                print(f"[✓] Successfully exported to: {out_path.resolve()}")
+
+            elif out_choice == "3":
+                out_path = vault.export_entries(entries, key, "decodedSecrets.md", fmt="md")
+                print(f"[✓] Successfully exported to: {out_path.resolve()}")
+
+        elif choice == "3":
+            filename = input(f"Enter vault filename [{default_vault_file}]: ").strip() or default_vault_file
+            vault = VigenereVault(filename)
+
+            while True:
+                print("\nHow do you want to modify your Secrets:")
+                print("(1) Add Secrets")
+                print("(2) Remove Secrets")
+                print("(0) Back to Main Menu")
+                sub_choice = input("Select (0-2): ").strip()
+
+                if sub_choice == "1":
+                    key = input("Please enter your Key: ").strip()
+                    if not key:
+                        print("[!] Key cannot be empty.")
+                        continue
+                    while True:
+                        secret = input("Please enter your Secret: ").strip()
+                        if secret:
+                            entry = vault.add_secret(key, secret)
+                            print(f"[✓] Added to line {entry.line_number} (Salt: {entry.salt})")
+                        cont = input("Continue adding with same Key? (1) Yes, (2) No: ").strip()
+                        if cont == "2":
+                            break
+
+                elif sub_choice == "2":
+                    key = input("Please enter the Key of the Secrets: ").strip()
+                    entries = vault.query_secrets(key)
+                    if not entries:
+                        print(f"[!] No secrets found for Key '{key}'.")
                         continue
 
-                    print(f"# {key}")
-                    for num, result in enumerate(results):
-                        print(f"{num + 1}. {result}")
+                    print("\n--- Current Secrets under this Key ---")
+                    for i, entry in enumerate(entries, start=1):
+                        print(f"{i}. (Line {entry.line_number}) {entry.secret}")
 
-                    print()
-                
-                print(("\n====================================================\n"))
-
-            elif command == 2:
-                with open("decodedSecrets.txt", 'w') as f:
-                    for key, results in resultedString.items():
-                        if len(results) == 0:
-                            continue
-
-                        f.write(f"{key}\n")
-                        for num, result in enumerate(results):
-                            f.write(f"{num + 1}. {result}\n")
-
-                        f.write(f"\n")
-                        
-
-            elif command == 3:
-                with open("decodedSecrets.md", 'w') as f:
-                    for key, results in resultedString.items():
-                        if len(results) == 0:
-                            continue
-
-                        f.write(f"# {key}\n")
-                        for num, result in enumerate(results):
-                            f.write(f"{num + 1}. {result}\n")
-
-                        f.write(f"\n")
-                        
-
-    elif command == 3:
-        # encodedText: str = input("Please enter your Secrets:\n")
-        encodedText: str = "Secrets.txt"
-        while True:
-            print("How do you want to modify your Secrets:")
-            print("(1) Add Secrets")
-            print("(2) Remove Secrets")
-            print()
-            print("(0) Back")
-            command: int = int(input())
-            if command == 1:
-                with open(encodedText, 'a') as f:
-                    print("Please enter your Key:")
-                    key: str = input()
-                    while True:
-                        print("Please enter your Secret:")
-                        secret: str = input()
-                        # Generate a random 8-digit number
-                        randomNumber = str(random.randint(10000000, 99999999))
-                        hashedString: str = getHashedstring(randomNumber + key)
-                        encrypted: str = encryptSecret(key + secret, hashedString)
-                        f.write(randomNumber + encrypted + "\n")
-                        print("Do you want to continue with the same Key?")
-                        print("(1) Yes")
-                        print("(2) No")
-                        command: int = int(input())
-                        while command not in [1, 2]:
-                            print("Please enter valid command.\n")
-                            print("Do you want to continue removing Secret with the same key?")
-                            print("(1) Yes")
-                            print("(2) No")
-                            command: int = int(input())
-
-                        if command == 2:
-                            break
-                    
-            
-            elif command == 2:
-                with open(encodedText, 'r') as f:
-                    print("Please enter the key of the Secrets:")
-                    key: str = input()
-                    secretsList: List[str] = list()
-                    resultedList: Dict[str, str] = dict()
-                    for line in f:
-                        hashedString: str = getHashedstring(line[:8] + key)
-                        decrypted: str = decryptSecret(line[8:], hashedString)
-                        if decrypted.startswith(key):
-                            decrypted = decrypted.lstrip(key)
-                            decrypted = decrypted.rstrip('\n')
-                            resultedList[decrypted] = line
-
+                    print("\nPlease choose the Secret '#' you want to remove (or 0 to cancel):")
+                    rem_input = input("Target number: ").strip()
+                    try:
+                        rem_idx = int(rem_input)
+                        if 1 <= rem_idx <= len(entries):
+                            target_entry = entries[rem_idx - 1]
+                            confirm = input(f"Are you sure you want to delete '{target_entry.secret}'? (y/n): ")
+                            if confirm.lower().startswith('y'):
+                                vault.delete_by_line_numbers([target_entry.line_number])
+                                print(f"[✓] Successfully removed line {target_entry.line_number}.")
+                            else:
+                                print("[*] Deletion cancelled.")
+                        elif rem_idx == 0:
+                            print("[*] Cancelled.")
                         else:
-                            secretsList.append(line)
+                            print("[!] Invalid index.")
+                    except ValueError:
+                        print("[!] Please enter a valid number.")
 
-                    for num, result in enumerate(resultedList.keys()):
-                        print(f"{num + 1}. {result}")
+                elif sub_choice == "0":
+                    break
 
-                    removeList: List[int] = list()
-                    print("\nPlease choose the Secret you want to remove.")
-                    while True:
-                        secretRemoved: int = int(input())
-                        removeList.append(list(resultedList.keys())[secretRemoved - 1])
-                        print("Do you want to continue removing Secret with the same key?")
-                        print("(1) Yes")
-                        print("(2) No")
-                        command: int = int(input())
-                        while command not in [1, 2]:
-                            print("Please enter valid command.\n")
-                            print("Do you want to continue removing Secret with the same key?")
-                            print("(1) Yes")
-                            print("(2) No")
-                            command: int = int(input())
+        elif choice == "4":
+            print("[*] Launching Graphical User Interface (GUI)...")
+            try:
+                import gui
+                gui.main()
+            except Exception as e:
+                print(f"[!] Failed to launch GUI: {e}")
 
-                        if command == 2:
-                            break
-                
-                    for decoded, secret in resultedList.items():
-                        if decoded in removeList:
-                            continue
-
-                        else:
-                            secretsList.append(secret)
-
-                with open(encodedText, 'w') as f:
-                    for secret in secretsList:
-                        f.write(secret)
-
-            elif command == 0:
-                break
-
-            else:
-                print("Please enter valid command.")
-                
-
-    elif command == 4:
-        print("Exiting...")
-        break
+        elif choice == "5":
+            print("Exiting... Stay safe!")
+            break
 
 
+def main():
+    if "--gui" in sys.argv:
+        import gui
+        gui.main()
+    elif "--cli" in sys.argv:
+        import cli
+        # Remove --cli from argv before passing to cli parser
+        sys.argv.remove("--cli")
+        cli.main()
+    else:
+        run_legacy_interactive()
+
+
+if __name__ == "__main__":
+    main()

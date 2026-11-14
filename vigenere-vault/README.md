@@ -46,20 +46,38 @@
 
 ---
 
+## 模組檔案架構
+
+- **[`core.py`](./core.py)**：底層核心密碼引擎與保險庫管理器（包含 8 位數安全加鹽、SHA-256 偽隨機流位移、字首安全去除與多金鑰解密過濾）。
+- **[`cli.py`](./cli.py)**：進階命令列工具（支援 Rich 終端表格、隱藏式金鑰輸入、互動選單與自動化子指令如 `list`、`add`、`delete`、`export`）。
+- **[`gui.py`](./gui.py)**：原生桌面視窗圖形介面（Tkinter / ttk，具備密碼隱藏切換、表格展示、一鍵複製剪貼簿、批次新增與檔案匯出）。
+- **[`main.py`](./main.py)**：主控制台入口（整合互動選單，亦可帶 `--cli` 或 `--gui` 參數直接啟動）。
+
+---
+
 ## 快速使用
 
+### 1. 啟動桌面視窗 (GUI)
 ```bash
-cd vigenere-vault
-python3 main.py
+python3 vigenere-vault/gui.py
+# 或透過 main.py 啟動
+python3 vigenere-vault/main.py --gui
 ```
 
-### 互動選單說明
-```text
-Please enter your command:
-(1) Create Encoded Text  # 建立新的加密檔案
-(2) Decode Encoded Text  # 解密特定 Key 的機密
-(3) Modify Encoded Text  # 新增或刪除機密
-(4) Exit                 # 離開程式
+### 2. 使用進階終端工具 (CLI)
+```bash
+# 啟動互動式彩色選單
+python3 vigenere-vault/cli.py
+
+# 或使用非互動子指令（適合腳本自動化）
+python3 vigenere-vault/cli.py list -k "你的金鑰"
+python3 vigenere-vault/cli.py add -k "你的金鑰" -s "my_secret_token"
+python3 vigenere-vault/cli.py export -k "你的金鑰" -o decoded.md --format md
+```
+
+### 3. 原生控制台互動選單
+```bash
+python3 vigenere-vault/main.py
 ```
 
 ---
