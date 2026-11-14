@@ -6,8 +6,21 @@ Built with Python's native Tkinter & TTK.
 
 from pathlib import Path
 import sys
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+
+# Safe Tkinter import with friendly troubleshooting advice
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+except ImportError:
+    print("\n[!] 錯誤：目前的 Python 環境缺少 Tkinter 模組支援。")
+    print("💡 快速解決方案（任選一種）：")
+    print("  1. 【推薦】使用您目前 (base) 環境的 python 直接執行：")
+    print("     python vigenere-vault/gui.py")
+    print("  2. 若要繼續使用 Homebrew 的 python3，請安裝 Tkinter 擴充：")
+    print("     brew install python-tk@3.15")
+    print("  3. 或改用 macOS 系統內建的 Python 3 執行：")
+    print("     /usr/bin/python3 vigenere-vault/gui.py\n")
+    sys.exit(1)
 from typing import List, Optional
 
 # Ensure core module is importable
