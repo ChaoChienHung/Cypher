@@ -7,6 +7,7 @@ decodedSecrets.md
 
 # 系統與環境檔案
 .DS_Store
+.vscode/
 __pycache__/
 *.pyc
 *.pyo
