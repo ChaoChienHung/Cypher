@@ -58,6 +58,10 @@
 
 ## ✅ 已完成項目 (Completed)
 
+- [x] **結構化屬性與標籤篩選 (Properties & Tag Filtering)**：
+  - 支援 `title`（標題）、`category`（類型）、`tags`（多標籤）與 `created_at`（時間戳記）。
+  - 智能 JSON 封裝全欄位加密，並保證對舊版純文字機密 100% 向後相容。
+  - PySide6 GUI 與 CLI 同步支援多條件即時過濾（關鍵字、標籤下拉選單、類型過濾）。
 - [x] **初始化 Git 版本庫並排除敏感檔案**：
   - 建立 `.gitignore` 排除 `Secrets.txt`、`decodedSecrets.*` 與系統暫存檔。
 - [x] **架構重構與模組化 (`core.py`)**：

@@ -2,7 +2,7 @@
 """
 Enhanced CLI for Vigenère Vault.
 Supports rich interactive menus, password masking, tabular displays,
-and non-interactive scripting subcommands.
+structured properties (title, tags, category), and filter/search subcommands.
 """
 
 import argparse
@@ -60,33 +60,52 @@ def print_error(msg: str):
         print(f"[-] {msg}")
 
 
-def display_entries_table(entries: List[VaultEntry], key: str):
-    """Render decrypted entries in a clear table."""
+def display_entries_table(entries: List[VaultEntry], key: str, filter_info: str = ""):
+    """Render decrypted entries in a clear, structured table."""
     if not entries:
-        print_warning(f"No secrets found matching the provided key in vault.")
+        info_suffix = f" (Filter: {filter_info})" if filter_info else ""
+        print_warning(f"No secrets found matching the key and criteria{info_suffix}.")
         return
+
+    title_text = f"Decrypted Secrets (Key: {key})"
+    if filter_info:
+        title_text += f" | Filter: {filter_info}"
 
     if HAS_RICH:
         table = Table(
-            title=f"Decrypted Secrets (Matched Key: {key})",
+            title=title_text,
             show_header=True,
             header_style="bold magenta",
             border_style="dim"
         )
         table.add_column("#", justify="right", style="cyan", width=4)
-        table.add_column("Vault Line", justify="center", style="dim", width=12)
-        table.add_column("Salt (Nonce)", justify="center", style="yellow", width=12)
+        table.add_column("Title", style="bold white", width=18)
+        table.add_column("Category", style="yellow", width=10)
+        table.add_column("Tags", style="cyan", width=16)
         table.add_column("Secret Plaintext", style="bold green")
+        table.add_column("Line", justify="center", style="dim", width=6)
 
         for idx, entry in enumerate(entries, start=1):
-            table.add_row(str(idx), f"L{entry.line_number}", entry.salt, entry.secret)
+            title_display = entry.title or "(Untitled)"
+            tags_display = " ".join([f"#{t}" for t in entry.tags]) if entry.tags else "-"
+            table.add_row(
+                str(idx),
+                title_display,
+                entry.category,
+                tags_display,
+                entry.secret,
+                f"L{entry.line_number}"
+            )
 
         console.print(table)
     else:
-        print(f"\n=== Decrypted Secrets (Key: {key}) ===")
+        print(f"\n=== {title_text} ===")
         for idx, entry in enumerate(entries, start=1):
-            print(f"[{idx}] (Line {entry.line_number} | Salt: {entry.salt}): {entry.secret}")
-        print("=" * 40 + "\n")
+            title_part = f"[{entry.title}] " if entry.title else ""
+            cat_part = f"({entry.category}) " if entry.category != "General" else ""
+            tags_part = f" #{' #'.join(entry.tags)}" if entry.tags else ""
+            print(f"[{idx}] (Line {entry.line_number}) {title_part}{cat_part}{entry.secret}{tags_part}")
+        print("=" * 50 + "\n")
 
 
 def get_master_key(provided_key: Optional[str] = None) -> str:
@@ -139,17 +158,17 @@ def interactive_menu(vault_path: Path):
         print()
         if HAS_RICH:
             console.print("[bold]Menu Options:[/bold]")
-            console.print("  [cyan]1[/cyan]. Query / Decode Secrets")
-            console.print("  [cyan]2[/cyan]. Add New Secret")
-            console.print("  [cyan]3[/cyan]. Batch Add Secrets")
+            console.print("  [cyan]1[/cyan]. Query & Filter Secrets (All / By Tag / By Category)")
+            console.print("  [cyan]2[/cyan]. Add New Secret (with Title & Tags)")
+            console.print("  [cyan]3[/cyan]. Batch Add Secrets (Simple)")
             console.print("  [cyan]4[/cyan]. Delete Secret")
             console.print("  [cyan]5[/cyan]. Change Vault File")
             console.print("  [cyan]0[/cyan]. Exit")
             choice = Prompt.ask("\nSelect option", choices=["0", "1", "2", "3", "4", "5"], default="1")
         else:
-            print("1. Query / Decode Secrets")
-            print("2. Add New Secret")
-            print("3. Batch Add Secrets")
+            print("1. Query & Filter Secrets")
+            print("2. Add New Secret (with Title & Tags)")
+            print("3. Batch Add Secrets (Simple)")
             print("4. Delete Secret")
             print("5. Change Vault File")
             print("0. Exit")
@@ -161,32 +180,70 @@ def interactive_menu(vault_path: Path):
 
         elif choice == "1":
             key = get_master_key()
-            entries = vault.query_secrets(key)
-            display_entries_table(entries, key)
-            if entries:
-                if HAS_RICH:
-                    do_export = Confirm.ask("Do you want to export these secrets?", default=False)
-                else:
-                    do_export = input("Export these secrets? (y/N): ").lower().startswith("y")
+            all_entries = vault.query_secrets(key)
+            if not all_entries:
+                print_warning(f"No secrets found matching the key in vault.")
+                continue
+
+            available_tags = vault.get_all_tags(all_entries)
+            available_cats = vault.get_all_categories(all_entries)
+
+            print_info(f"Unlocked {len(all_entries)} secrets.")
+            if available_tags:
+                print_info(f"Available tags: {', '.join(['#' + t for t in available_tags])}")
+
+            # Optional filter prompt
+            filter_prompt = input("Filter by (1: Show All, 2: Tag, 3: Category, 4: Keyword Search) [1]: ").strip() or "1"
+            filter_tag, filter_cat, filter_q = None, None, None
+            filter_label = ""
+
+            if filter_prompt == "2":
+                tag_in = input(f"Enter Tag to filter ({'/'.join(available_tags)}): ").strip().lstrip("#")
+                if tag_in:
+                    filter_tag = tag_in
+                    filter_label = f"Tag=#{tag_in}"
+            elif filter_prompt == "3":
+                cat_in = input(f"Enter Category to filter ({'/'.join(available_cats)}): ").strip()
+                if cat_in:
+                    filter_cat = cat_in
+                    filter_label = f"Category={cat_in}"
+            elif filter_prompt == "4":
+                q_in = input("Enter search keyword: ").strip()
+                if q_in:
+                    filter_q = q_in
+                    filter_label = f"Keyword='{q_in}'"
+
+            filtered_entries = [e for e in all_entries if e.matches_filter(filter_tag, filter_cat, filter_q)]
+            display_entries_table(filtered_entries, key, filter_label)
+
+            if filtered_entries:
+                do_export = input("Export these secrets? (y/N): ").lower().startswith("y")
                 if do_export:
-                    fmt = "md" if input("Format (1: Markdown, 2: Plain Text) [1]: ").strip() != "2" else "txt"
+                    fmt = "md" if input("Format (1: Markdown Table, 2: Plain Text) [1]: ").strip() != "2" else "txt"
                     default_out = f"decodedSecrets.{fmt}"
                     out_file = input(f"Output filename [{default_out}]: ").strip() or default_out
-                    out_path = vault.export_entries(entries, key, out_file, fmt)
-                    print_success(f"Exported {len(entries)} secrets to {out_path.name}")
+                    out_path = vault.export_entries(filtered_entries, key, out_file, fmt)
+                    print_success(f"Exported {len(filtered_entries)} secrets to {out_path.name}")
 
         elif choice == "2":
             key = get_master_key()
+            title = input("Enter Title/Service (e.g. GitHub Token, Bank) [optional]: ").strip()
+            cat = input("Enter Category (Login, API Key, Note, Cloud, General) [General]: ").strip() or "General"
+            tags_raw = input("Enter Tags (comma-separated, e.g. work, api, prod) [optional]: ").strip()
+            tags_list = [t.strip().lstrip("#") for t in tags_raw.split(",") if t.strip()]
+
             secret = input("Enter Secret to encrypt: ").strip()
             if not secret:
                 print_warning("Secret was empty, cancelled.")
                 continue
-            entry = vault.add_secret(key, secret)
-            print_success(f"Added secret to line {entry.line_number} (Salt: {entry.salt})")
+
+            entry = vault.add_secret(key, secret, title=title, tags=tags_list, category=cat)
+            tags_repr = f" [#{' #'.join(entry.tags)}]" if entry.tags else ""
+            print_success(f"Added secret '{entry.title or entry.secret}' to line {entry.line_number}{tags_repr}")
 
         elif choice == "3":
             key = get_master_key()
-            print_info("Enter secrets line by line. Submit an empty line to finish:")
+            print_info("Enter simple secrets line by line. Submit an empty line to finish:")
             batch_list = []
             while True:
                 line = input(f"Secret #{len(batch_list) + 1}: ").strip()
@@ -211,7 +268,8 @@ def interactive_menu(vault_path: Path):
                 t_idx = int(target)
                 if 1 <= t_idx <= len(entries):
                     selected = entries[t_idx - 1]
-                    confirm = input(f"Delete '{selected.secret}' at Line {selected.line_number}? (y/N): ")
+                    name_repr = selected.title or selected.secret
+                    confirm = input(f"Delete '{name_repr}' at Line {selected.line_number}? (y/N): ")
                     if confirm.lower().startswith('y'):
                         vault.delete_by_line_numbers([selected.line_number])
                         print_success(f"Deleted secret at line {selected.line_number}")
@@ -237,7 +295,7 @@ def interactive_menu(vault_path: Path):
 # ==========================================
 def main():
     parser = argparse.ArgumentParser(
-        description="Vigenère Vault: Salted Hash-Driven Multi-Key Secret Manager",
+        description="Vigenère Vault: Salted Hash-Driven Multi-Key Secret Manager with Tag/Property Filtering",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -249,15 +307,21 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Sub-command to execute")
 
     # Command: list / query
-    list_p = subparsers.add_parser("list", aliases=["query"], help="List / decrypt secrets for a key")
+    list_p = subparsers.add_parser("list", aliases=["query"], help="List / decrypt secrets with optional filters")
     list_p.add_argument("-k", "--key", help="Master key (prompts securely if omitted)")
+    list_p.add_argument("-t", "--tag", help="Filter by specific tag (e.g. work, api)", default=None)
+    list_p.add_argument("-c", "--category", help="Filter by category (e.g. Login, API Key)", default=None)
+    list_p.add_argument("-q", "--search", help="Search text across title, secret and tags", default=None)
     list_p.add_argument("--export", help="Export matching secrets to file path", default=None)
     list_p.add_argument("--format", choices=["txt", "md"], default="md", help="Export format (default: md)")
 
     # Command: add
-    add_p = subparsers.add_parser("add", help="Add a new secret")
+    add_p = subparsers.add_parser("add", help="Add a new secret with optional title, tags, and category")
     add_p.add_argument("-k", "--key", help="Master key (prompts securely if omitted)")
     add_p.add_argument("-s", "--secret", help="Secret text to encrypt (prompts if omitted)")
+    add_p.add_argument("--title", help="Title or label for the secret", default="")
+    add_p.add_argument("--tags", help="Comma-separated tags (e.g. 'work,api,prod')", default="")
+    add_p.add_argument("-c", "--category", help="Category (Login, API Key, Note, General)", default="General")
 
     # Command: delete
     del_p = subparsers.add_parser("delete", aliases=["rm"], help="Delete a secret by matching key")
@@ -288,8 +352,19 @@ def main():
 
     if args.command in ["list", "query"]:
         key = get_master_key(args.key)
-        entries = vault.query_secrets(key)
-        display_entries_table(entries, key)
+        tag_val = args.tag.lstrip("#") if args.tag else None
+        entries = vault.query_secrets(
+            key,
+            filter_tag=tag_val,
+            filter_category=args.category,
+            filter_text=args.search
+        )
+        filter_str = f"Tag=#{tag_val}" if tag_val else ""
+        if args.category:
+            filter_str += f" Cat={args.category}"
+        if args.search:
+            filter_str += f" Search='{args.search}'"
+        display_entries_table(entries, key, filter_str.strip())
         if args.export and entries:
             out = vault.export_entries(entries, key, args.export, args.format)
             print_success(f"Exported {len(entries)} secrets to {out}")
@@ -302,8 +377,17 @@ def main():
         if not secret:
             print_error("Cannot add an empty secret.")
             sys.exit(1)
-        entry = vault.add_secret(key, secret)
-        print_success(f"Added secret to {vault.path.name} at line {entry.line_number} (Salt: {entry.salt})")
+
+        tags_list = [t.strip().lstrip("#") for t in args.tags.split(",") if t.strip()]
+        entry = vault.add_secret(
+            key,
+            secret,
+            title=args.title,
+            tags=tags_list,
+            category=args.category
+        )
+        tags_repr = f" [#{' #'.join(entry.tags)}]" if entry.tags else ""
+        print_success(f"Added secret '{entry.title or entry.secret}' to line {entry.line_number}{tags_repr}")
 
     elif args.command in ["delete", "rm"]:
         key = get_master_key(args.key)
