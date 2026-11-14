@@ -129,3 +129,25 @@
 | **參數解析** | `argparse` | 支援子指令體系的現代 CLI 架構 |
 | **隱藏輸入** | `getpass.getpass` | 終端機密碼輸入防側錄 |
 | **資料載體** | `@dataclass (VaultEntry)` | 乾淨、具備型別提示的機密物件封裝 |
+| **原生打包編譯** | **PyInstaller** | 將 Python + PySide6 打包成雙擊即開的 macOS `.app` Bundle |
+
+---
+
+## 六、獨立應用程式打包與編譯技術 (Application Bundling)
+
+本專案提供專門的打包編譯腳本 `build.py`，能自動將 Python 原始碼與 PySide6 依賴項封裝成 macOS 原生應用程式（`.app` Bundle），支援使用者直接雙擊執行：
+
+### 1. macOS `.app` Bundle 結構
+PyInstaller 透過 `--windowed` 參數產生符合 Apple 標準的應用程式套件結構：
+```
+VigenereVault.app/
+└── Contents/
+    ├── Info.plist           # 包含 Bundle Identifier、版本與作業系統相容設定
+    ├── MacOS/
+    │   └── VigenereVault    # 獨立二進位 Mach-O 啟動執行檔
+    ├── Resources/           # 應用程式資源與圖示
+    └── Frameworks/          # 內嵌之 Python Runtime 與 Qt6 動態函式庫
+```
+
+### 2. Frozen Runtime 環境探測
+當應用程式被打包後，Python 解譯器會設定 `sys.frozen = True`。程式透過此旗標動態調整工作路徑，自動選取使用者的桌面或家目錄尋找 `Secrets.txt`，確保雙擊啟動時不會因路徑偏差而找不到檔案。

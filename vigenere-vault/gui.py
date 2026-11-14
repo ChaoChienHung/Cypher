@@ -190,6 +190,18 @@ class VigenereVaultPySide(QMainWindow):
         self._update_vault_file_status()
 
     def _locate_default_vault(self) -> Path:
+        if getattr(sys, 'frozen', False):
+            # Running as a compiled .app / binary
+            candidates = [
+                Path.cwd() / "Secrets.txt",
+                Path.home() / "Desktop" / "Secrets.txt",
+                Path.home() / "Documents" / "Secrets.txt",
+            ]
+            for p in candidates:
+                if p.exists():
+                    return p.resolve()
+            return (Path.home() / "Desktop" / "Secrets.txt").resolve()
+
         candidates = [
             Path("Secrets.txt"),
             current_dir / "Secrets.txt",

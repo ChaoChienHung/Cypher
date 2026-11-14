@@ -5,6 +5,14 @@ decodedSecrets.txt
 decodedSecrets.md
 **/decodedSecrets.*
 
+# 打包與編譯產出檔
+build/
+**/build/
+dist/
+**/dist/
+*.spec
+**/*.spec
+
 # 系統與環境檔案
 .DS_Store
 .vscode/

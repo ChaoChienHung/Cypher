@@ -51,13 +51,25 @@
 - **[`core.py`](./core.py)**：底層核心密碼引擎與保險庫管理器（包含 8 位數安全加鹽、SHA-256 偽隨機流位移、字首安全去除與多金鑰解密過濾）。
 - **[`cli.py`](./cli.py)**：進階命令列工具（支援 Rich 終端表格、隱藏式金鑰輸入、互動選單與自動化子指令如 `list`、`add`、`delete`、`export`）。
 - **[`gui.py`](./gui.py)**：現代桌面視窗圖形介面（基於 **PySide6 / Qt 6**，科技暗黑主題，具備即時關鍵字搜尋、密碼遮罩切換、表格展示、一鍵複製剪貼簿、批次新增與檔案匯出）。
+- **[`build.py`](./build.py)**：自動化編譯打包腳本（將 Python 與 PySide6 打包成雙擊即開的獨立 `.app` 桌面軟體）。
 - **[`main.py`](./main.py)**：主控制台入口（整合互動選單，亦可帶 `--cli` 或 `--gui` 參數直接啟動）。
 
 ---
 
 ## 快速使用
 
-### 1. 啟動桌面視窗 (GUI)
+### 1. 編譯為獨立桌面軟體（雙擊開啟）
+```bash
+python build.py
+```
+編譯完成後，產生的原生應用程式位於：
+- **`dist/VigenereVault.app`**（在 Finder 中直接**點兩下**即可開啟，無需終端機或環境依賴！）
+- 若要在 Finder 中定位該檔案：
+  ```bash
+  open -R vigenere-vault/dist/VigenereVault.app
+  ```
+
+### 2. 直接以原始碼啟動桌面視窗 (GUI)
 ```bash
 python3 vigenere-vault/gui.py
 # 或透過 main.py 啟動
