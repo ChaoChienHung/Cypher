@@ -60,10 +60,12 @@
 
 ### 1. 編譯為獨立桌面軟體（雙擊開啟）
 ```bash
-python build.py
+python vigenere-vault/build.py
+# 或進入目錄執行
+cd vigenere-vault && python build.py
 ```
 編譯完成後，產生的原生應用程式位於：
-- **`dist/VigenereVault.app`**（在 Finder 中直接**點兩下**即可開啟，無需終端機或環境依賴！）
+- **`vigenere-vault/dist/VigenereVault.app`**（在 Finder 中直接**點兩下**即可開啟，無需終端機或環境依賴！）
 - 若要在 Finder 中定位該檔案：
   ```bash
   open -R vigenere-vault/dist/VigenereVault.app
